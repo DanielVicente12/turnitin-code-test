@@ -1,10 +1,13 @@
 package integrations.turnitin.com.membersearcher.service;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 import integrations.turnitin.com.membersearcher.client.MembershipBackendClient;
 import integrations.turnitin.com.membersearcher.model.MembershipList;
 
+import integrations.turnitin.com.membersearcher.model.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -16,20 +19,20 @@ public class MembershipService {
 	/**
 	 * Method to fetch all memberships with their associated user details included.
 	 * This method calls out to the php-backend service and fetches all memberships,
-	 * it then calls to fetch the user details for each user individually and
-	 * associates them with their corresponding membership.
+	 * it then calls to fetch all user details and
+	 * associates each of them with their corresponding membership.
 	 *
 	 * @return A CompletableFuture containing a fully populated MembershipList object.
 	 */
 	public CompletableFuture<MembershipList> fetchAllMembershipsWithUsers() {
 		return membershipBackendClient.fetchMemberships()
-				.thenCompose(members -> {
-					CompletableFuture<?>[] userCalls = members.getMemberships().stream()
-							.map(member -> membershipBackendClient.fetchUser(member.getUserId())
-									.thenApply(member::setUser))
-							.toArray(CompletableFuture<?>[]::new);
-					return CompletableFuture.allOf(userCalls)
-							.thenApply(nil -> members);
+				.thenCombine(membershipBackendClient.fetchUsers(), (members, users) -> {
+					Map<String, User> usersMap = users.getUsers().stream().collect(Collectors.toMap(User::getId, user -> user));
+
+					members.getMemberships().forEach(membership -> {
+						membership.setUser(usersMap.getOrDefault(membership.getUserId(), null));
+					});
+					return members;
 				});
 	}
 }
