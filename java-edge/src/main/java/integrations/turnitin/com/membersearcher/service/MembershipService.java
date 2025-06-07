@@ -30,7 +30,7 @@ public class MembershipService {
 					Map<String, User> usersMap = users.getUsers().stream().collect(Collectors.toMap(User::getId, user -> user));
 
 					members.getMemberships().forEach(membership -> {
-						membership.setUser(usersMap.getOrDefault(membership.getUserId(), null));
+						membership.setUser(usersMap.get(membership.getUserId()));
 					});
 					return members;
 				});
